@@ -343,7 +343,7 @@ db-migrate-prod: ## Run production migrations
 	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod up migrate
 
 db-seed-staging: ## Seed staging test data
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging exec -T postgres psql -U rediver -d rediver < rediver-api/migrations/seed/seed_test.sql
+	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging exec -T postgres psql -U rediver -d rediver < seed/seed_test.sql
 	@echo "Seeding complete! Test login: admin@rediver.io / Password123"
 
 redis-shell-staging: ## Open staging Redis CLI

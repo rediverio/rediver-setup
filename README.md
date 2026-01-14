@@ -420,6 +420,46 @@ UI_PORT=3001
 
 ---
 
+## CI/CD
+
+Docker images are automatically built and published to Docker Hub using GitHub Actions.
+
+### Triggering Builds
+
+**Option 1: Push a tag (automatic)**
+```bash
+# Staging release
+git tag v0.1.1-staging
+git push origin v0.1.1-staging
+
+# Production release
+git tag v0.1.1
+git push origin v0.1.1
+```
+
+**Option 2: Manual trigger**
+1. Go to **Actions** tab in GitHub
+2. Select **Docker Publish** workflow
+3. Click **Run workflow**
+4. Enter version and environment
+
+### Image Tags
+
+| Environment | Image Tag Format | Example |
+|-------------|------------------|---------|
+| Staging | `v*.*.*-staging` | `rediverio/rediver-ui:v0.1.1-staging` |
+| Production | `v*.*.*` | `rediverio/rediver-ui:v0.1.1` |
+
+### Setup Requirements
+
+Add these secrets to GitHub repository:
+- `DOCKERHUB_USERNAME`: Docker Hub username
+- `DOCKERHUB_TOKEN`: Docker Hub access token
+
+See [docs/CICD.md](docs/CICD.md) for detailed documentation.
+
+---
+
 ## Security Notes
 
 ### Staging

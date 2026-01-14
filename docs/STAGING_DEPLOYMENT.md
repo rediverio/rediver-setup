@@ -16,6 +16,7 @@ Comprehensive guide for deploying Rediver Platform to staging environment.
 - [HTTPS/SSL Mode](#httpsssl-mode)
 - [Debug Mode](#debug-mode)
 - [Management Commands](#management-commands)
+- [CI/CD - Building Docker Images](#cicd---building-docker-images)
 - [Troubleshooting](#troubleshooting)
 - [Remote Server Deployment](#remote-server-deployment)
 
@@ -575,6 +576,79 @@ make staging-clean
 # Prune unused Docker resources
 make prune
 ```
+
+---
+
+## CI/CD - Building Docker Images
+
+Docker images are built and published using GitHub Actions.
+
+### Building Staging Images
+
+**Option 1: Push a tag (recommended)**
+
+```bash
+# Make sure you're on develop branch with latest code
+git checkout develop
+git pull origin develop
+
+# Create and push staging tag
+git tag v0.1.1-staging
+git push origin v0.1.1-staging
+
+# GitHub Actions will automatically:
+# - Build for linux/amd64 and linux/arm64
+# - Push to Docker Hub as rediverio/rediver-ui:v0.1.1-staging
+```
+
+**Option 2: Manual trigger**
+
+1. Go to GitHub repository → **Actions** tab
+2. Select **Docker Publish** workflow
+3. Click **Run workflow**
+4. Enter:
+   - Version: `v0.1.1`
+   - Environment: `staging`
+5. Click **Run workflow**
+
+### Deploying New Version
+
+After image is built:
+
+```bash
+# Update version in .env files
+# .env.ui.staging
+VERSION=v0.1.1-staging
+
+# .env.api.staging
+VERSION=v0.1.1-staging
+
+# Pull and restart
+make staging-pull
+make staging-restart
+```
+
+Or with VERSION variable:
+
+```bash
+VERSION=v0.1.1-staging make staging-pull
+VERSION=v0.1.1-staging make staging-restart
+```
+
+### Setting Up CI/CD
+
+1. **Add GitHub Secrets** (one-time setup):
+   - Go to repo **Settings → Secrets and variables → Actions**
+   - Add `DOCKERHUB_USERNAME`: Your Docker Hub username
+   - Add `DOCKERHUB_TOKEN`: Docker Hub access token
+
+2. **Get Docker Hub Token**:
+   - Go to https://hub.docker.com/settings/security
+   - Click **New Access Token**
+   - Name: `github-actions`
+   - Copy token and add to GitHub secrets
+
+See [CICD.md](CICD.md) for complete documentation.
 
 ---
 

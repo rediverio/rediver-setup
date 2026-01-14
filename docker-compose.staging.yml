@@ -236,7 +236,7 @@ services:
     image: postgres:17-alpine
     container_name: rediver-seed
     volumes:
-      - ./rediver-api/migrations/seed:/seed:ro
+      - ./seed:/seed:ro
     env_file:
       - .env.db.staging
       - .env.api.staging
@@ -271,9 +271,9 @@ services:
   # ---------------------------------------------------------------------------
   # Backend API (Go)
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/rediver-api:<version>-staging
+  # Image from Docker Hub: rediverio/rediver-api:<version>
   api:
-    image: rediverio/rediver-api:${VERSION:-v0.1.1}-staging
+    image: rediverio/rediver-api:${VERSION:-"staging-latest"}
     container_name: rediver-api
     restart: unless-stopped
     env_file:
@@ -318,10 +318,10 @@ services:
   # ---------------------------------------------------------------------------
   # Frontend UI (Next.js)
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/rediver-ui:<version>-staging
+  # Image from Docker Hub: rediverio/rediver-ui:<version>
   # Note: NEXT_PUBLIC_* variables are baked into the image at build time
   ui:
-    image: rediverio/rediver-ui:${VERSION:-v0.1.0}-staging
+    image: rediverio/rediver-ui:${VERSION:-"staging-latest"}
     container_name: rediver-ui
     restart: unless-stopped
     env_file:
