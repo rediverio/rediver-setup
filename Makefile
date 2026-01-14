@@ -30,10 +30,11 @@ STAGING_COMPOSE := docker-compose.staging.yml
 PROD_COMPOSE := docker-compose.prod.yml
 PROD_SIMPLE_COMPOSE := docker-compose.prod-simple.yml
 
-# Env files for docker-compose variable substitution (image versions, ports, etc.)
-# Note: These are for compose file variables like ${API_VERSION}, not container env vars
-STAGING_ENV_FILES := --env-file .env.versions.staging
-PROD_ENV_FILES := --env-file .env.versions.prod
+# Env files for docker-compose variable substitution (image versions, db passwords, etc.)
+# Note: These are for compose file variables like ${API_VERSION}, ${DB_PASSWORD}, etc.
+# Container env vars are loaded via env_file: directives in the compose file itself
+STAGING_ENV_FILES := --env-file .env.db.staging --env-file .env.versions.staging
+PROD_ENV_FILES := $(PROD_ENV_FILES) --env-file .env.versions.prod
 
 .PHONY: help init-staging init-prod init-ssl init-ssl-letsencrypt ssl-renew \
         staging-up staging-up-seed staging-up-ssl staging-up-ssl-seed staging-seed staging-down staging-logs staging-ps staging-restart \
@@ -273,8 +274,8 @@ staging-clean: ## Stop and remove staging volumes
 prod-up: check-prod check-nginx-prod check-ssl ## Start production with Nginx/SSL
 	@echo "Starting production environment with Nginx/SSL (version: $(VERSION))..."
 	@echo "Pulling images from Docker Hub..."
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod pull
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod up -d
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) pull
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) up -d
 	@echo ""
 	@echo "Services starting... UI: https://your-domain.com"
 	@echo "View logs: make prod-logs"
@@ -282,52 +283,52 @@ prod-up: check-prod check-nginx-prod check-ssl ## Start production with Nginx/SS
 prod-simple-up: check-prod ## Start production without Nginx (external proxy)
 	@echo "Starting production environment without Nginx (version: $(VERSION))..."
 	@echo "Use this with external reverse proxy (AWS ALB, Traefik, etc.)"
-	docker compose -f $(PROD_SIMPLE_COMPOSE) --env-file .env.db.prod pull
-	docker compose -f $(PROD_SIMPLE_COMPOSE) --env-file .env.db.prod up -d
+	docker compose -f $(PROD_SIMPLE_COMPOSE) $(PROD_ENV_FILES) pull
+	docker compose -f $(PROD_SIMPLE_COMPOSE) $(PROD_ENV_FILES) up -d
 	@echo ""
 	@echo "Services starting... UI: http://localhost:3000"
 	@echo "Configure your external proxy to forward to port 3000"
 
 prod-simple-down: ## Stop production (simple) services
-	docker compose -f $(PROD_SIMPLE_COMPOSE) --env-file .env.db.prod down
+	docker compose -f $(PROD_SIMPLE_COMPOSE) $(PROD_ENV_FILES) down
 
 prod-down: ## Stop production services
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod down
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) down
 
 prod-logs: ## View production logs (follow)
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod logs -f
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) logs -f
 
 prod-logs-api: ## View production API logs
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod logs -f api
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) logs -f api
 
 prod-logs-ui: ## View production UI logs
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod logs -f ui
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) logs -f ui
 
 prod-ps: ## Show production containers
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod ps
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) ps
 
 prod-restart: ## Restart production services
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod restart
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) restart
 
 prod-restart-api: ## Restart production API only
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod restart api
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) restart api
 
 prod-restart-ui: ## Restart production UI only
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod restart ui
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) restart ui
 
 prod-pull: check-prod ## Pull latest production images
 	@echo "Pulling production images (version: $(VERSION))..."
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod pull
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) pull
 
 prod-upgrade: check-prod check-nginx-prod check-ssl ## Upgrade to latest version
 	@echo "Upgrading production to version: $(VERSION)..."
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod pull
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod up -d --force-recreate
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) pull
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) up -d --force-recreate
 
 prod-clean: ## Stop and remove production volumes (DANGER!)
 	@echo "WARNING: This will delete all production data!"
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || exit 1
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod down -v
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) down -v
 
 # =============================================================================
 # Database Commands
@@ -337,13 +338,13 @@ db-shell-staging: ## Open staging PostgreSQL shell
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec postgres psql -U rediver -d rediver
 
 db-shell-prod: ## Open production PostgreSQL shell
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec postgres psql -U rediver -d rediver
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) exec postgres psql -U rediver -d rediver
 
 db-migrate-staging: ## Run staging migrations
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) up migrate
 
 db-migrate-prod: ## Run production migrations
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod up migrate
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) up migrate
 
 db-seed-staging: ## Seed staging test data
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec -T postgres psql -U rediver -d rediver < seed/seed_test.sql
@@ -354,7 +355,7 @@ redis-shell-staging: ## Open staging Redis CLI
 
 redis-shell-prod: ## Open production Redis CLI
 	@echo "Note: Production Redis requires password"
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec redis redis-cli
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) exec redis redis-cli
 
 # =============================================================================
 # Utility Commands
@@ -420,7 +421,7 @@ status-staging: ## Show staging status
 
 status-prod: ## Show production status
 	@echo "=== Production Environment ==="
-	@docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Not running"
+	@docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Not running"
 
 prune: ## Remove unused Docker resources
 	docker system prune -f
@@ -434,16 +435,16 @@ nginx-test-staging: ## Test staging nginx configuration
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl exec nginx nginx -t
 
 nginx-test-prod: ## Test production nginx configuration
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec nginx nginx -t
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) exec nginx nginx -t
 
 nginx-reload-staging: ## Reload staging nginx configuration
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl exec nginx nginx -s reload
 
 nginx-reload-prod: ## Reload production nginx configuration
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec nginx nginx -s reload
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) exec nginx nginx -s reload
 
 nginx-logs-staging: ## View staging nginx logs
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl logs -f nginx
 
 nginx-logs-prod: ## View production nginx logs
-	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod logs -f nginx
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) logs -f nginx
