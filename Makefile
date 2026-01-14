@@ -398,7 +398,7 @@ check-nginx-prod:
 		exit 1; \
 	fi
 
-generate-secrets: ## Generate secure secrets
+generate-secrets: ## Generate secure secrets (URL-safe, no special characters)
 	@echo "=== Generated Secrets ==="
 	@echo ""
 	@echo "AUTH_JWT_SECRET (for .env.api.*):"
@@ -407,11 +407,11 @@ generate-secrets: ## Generate secure secrets
 	@echo "CSRF_SECRET (for .env.ui.*):"
 	@openssl rand -hex 32
 	@echo ""
-	@echo "DB_PASSWORD (for .env.db.*):"
-	@openssl rand -base64 24
+	@echo "DB_PASSWORD (for .env.db.*) - URL-safe:"
+	@openssl rand -hex 24
 	@echo ""
-	@echo "REDIS_PASSWORD (for .env.db.prod):"
-	@openssl rand -base64 24
+	@echo "REDIS_PASSWORD (for .env.db.*) - URL-safe:"
+	@openssl rand -hex 24
 
 status-staging: ## Show staging status
 	@echo "=== Staging Environment ==="
