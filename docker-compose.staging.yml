@@ -1,0 +1,320 @@
+# =============================================================================
+# Docker Compose for Staging Environment
+# =============================================================================
+# Complete staging setup with API, UI, database, and automatic migrations.
+#
+# Quick Start:
+#   1. Copy .env.staging.example to .env.staging
+#   2. Update secrets in .env.staging
+#   3. Run: docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+#
+# Commands:
+#   Start all:     docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+#   View logs:     docker compose -f docker-compose.staging.yml logs -f
+#   Stop all:      docker compose -f docker-compose.staging.yml down
+#   Reset DB:      docker compose -f docker-compose.staging.yml down -v
+#   Rebuild:       docker compose -f docker-compose.staging.yml up -d --build
+#
+# Services:
+#   - postgres:  PostgreSQL 17 database
+#   - redis:     Redis 7 cache
+#   - migrate:   Runs migrations and seeds (exits after completion)
+#   - api:       Backend API (Go) on port 8080
+#   - ui:        Frontend UI (Next.js) on port 3000
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:17-alpine
+    container_name: rediver-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-rediver}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+      POSTGRES_DB: ${DB_NAME:-rediver}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_EXTERNAL_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rediver} -d ${DB_NAME:-rediver}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - rediver-network
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: rediver-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - rediver-network
+
+  # ---------------------------------------------------------------------------
+  # Database Migration Service
+  # ---------------------------------------------------------------------------
+  # Runs migrations and optionally seeds data, then exits
+  # Set SEED_TEST_DATA=true to seed test data for staging
+  migrate:
+    image: migrate/migrate:latest
+    container_name: rediver-migrate
+    volumes:
+      - ./rediver-api/migrations:/migrations:ro
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-rediver}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-rediver}?sslmode=disable
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for database to be ready..."
+        sleep 5
+        echo "Running migrations..."
+        /migrate -path=/migrations -database "$${DATABASE_URL}" up
+        echo "Migrations complete!"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rediver-network
+
+  # ---------------------------------------------------------------------------
+  # Database Seeding Service (Optional)
+  # ---------------------------------------------------------------------------
+  # Only runs if SEED_DATA=true in environment
+  # Seeds test data for staging environment
+  seed:
+    image: postgres:17-alpine
+    container_name: rediver-seed
+    volumes:
+      - ./rediver-api/migrations/seed:/seed:ro
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${DB_USER:-rediver}
+      PGPASSWORD: ${DB_PASSWORD:-secret}
+      PGDATABASE: ${DB_NAME:-rediver}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for migrations to complete..."
+        sleep 10
+        echo "Seeding database..."
+        psql -f /seed/seed_required.sql
+        if [ "$${SEED_TEST_DATA}" = "true" ]; then
+          echo "Seeding test data..."
+          psql -f /seed/seed_test.sql
+        fi
+        echo "Seeding complete!"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    networks:
+      - rediver-network
+    profiles:
+      - seed
+
+  # ---------------------------------------------------------------------------
+  # Backend API (Go)
+  # ---------------------------------------------------------------------------
+  # NOTE: API is NOT exposed externally - only accessible via Docker network
+  # Frontend (UI) proxies all API requests through Next.js server
+  api:
+    build:
+      context: ./rediver-api
+      dockerfile: Dockerfile
+      target: production
+    image: rediver-api:staging
+    container_name: rediver-api
+    restart: unless-stopped
+    # Internal ports only - not exposed to host
+    expose:
+      - "8080"
+      - "9090"
+    environment:
+      # Application
+      APP_NAME: rediver
+      APP_ENV: staging
+      APP_DEBUG: ${APP_DEBUG:-false}
+      # Server
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+      SERVER_REQUEST_TIMEOUT: 30s
+      GRPC_PORT: 9090
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-rediver}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      DB_NAME: ${DB_NAME:-rediver}
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+      DB_MAX_OPEN_CONNS: 25
+      DB_MAX_IDLE_CONNS: 5
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_TLS_ENABLED: "false"
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: json
+      # Authentication
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-local}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_JWT_ISSUER: rediver-api
+      AUTH_ACCESS_TOKEN_DURATION: ${AUTH_ACCESS_TOKEN_DURATION:-15m}
+      AUTH_REFRESH_TOKEN_DURATION: ${AUTH_REFRESH_TOKEN_DURATION:-168h}
+      AUTH_SESSION_DURATION: ${AUTH_SESSION_DURATION:-720h}
+      AUTH_PASSWORD_MIN_LENGTH: "8"
+      AUTH_PASSWORD_REQUIRE_UPPERCASE: "true"
+      AUTH_PASSWORD_REQUIRE_LOWERCASE: "true"
+      AUTH_PASSWORD_REQUIRE_NUMBER: "true"
+      AUTH_PASSWORD_REQUIRE_SPECIAL: "false"
+      AUTH_MAX_LOGIN_ATTEMPTS: "5"
+      AUTH_LOCKOUT_DURATION: 15m
+      AUTH_MAX_ACTIVE_SESSIONS: "10"
+      AUTH_ALLOW_REGISTRATION: ${AUTH_ALLOW_REGISTRATION:-true}
+      AUTH_REQUIRE_EMAIL_VERIFICATION: ${AUTH_REQUIRE_EMAIL_VERIFICATION:-false}
+      # CORS
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      # Rate Limiting
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_RPS: "100"
+      RATE_LIMIT_BURST: "200"
+      # SMTP (optional)
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@rediver.io}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Rediver}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - rediver-network
+
+  # ---------------------------------------------------------------------------
+  # Frontend UI (Next.js)
+  # ---------------------------------------------------------------------------
+  # UI is the only service exposed externally
+  # All API requests go through Next.js server-side proxy to internal API
+  #
+  # Environment Variable Types:
+  # ===========================================================================
+  # NEXT_PUBLIC_*: Visible to browser, bundled into client-side JavaScript
+  #                - Safe for: App URLs, feature flags, cookie names
+  #                - NEVER put secrets here!
+  #
+  # Server-only (no prefix): Hidden from browser, only available on server
+  #                - Use for: Backend URLs, secrets, API keys
+  #                - Example: BACKEND_API_URL, CSRF_SECRET
+  #
+  # Request Flow (BFF Pattern):
+  #   Browser → http://localhost:3000/api/* → Next.js Server → http://api:8080
+  #   (NEXT_PUBLIC_API_URL)                    (BACKEND_API_URL - hidden)
+  # ===========================================================================
+  ui:
+    build:
+      context: ./rediver-ui
+      dockerfile: Dockerfile
+      target: production
+      args:
+        # Build-time NEXT_PUBLIC_* variables (baked into client bundle)
+        # Browser calls frontend URL, NOT backend directly
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        NEXT_PUBLIC_AUTH_PROVIDER: ${AUTH_PROVIDER:-local}
+        NEXT_PUBLIC_AUTH_COOKIE_NAME: rediver_auth_token
+        NEXT_PUBLIC_REFRESH_COOKIE_NAME: rediver_refresh_token
+    image: rediver-ui:staging
+    container_name: rediver-ui
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+
+      # -----------------------------------------------------------------------
+      # NEXT_PUBLIC_* variables (visible to browser)
+      # -----------------------------------------------------------------------
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_AUTH_PROVIDER: ${AUTH_PROVIDER:-local}
+      NEXT_PUBLIC_AUTH_COOKIE_NAME: rediver_auth_token
+      NEXT_PUBLIC_REFRESH_COOKIE_NAME: rediver_refresh_token
+      NEXT_PUBLIC_SENTRY_DSN: ${SENTRY_DSN:-}
+
+      # -----------------------------------------------------------------------
+      # Server-only variables (hidden from browser)
+      # -----------------------------------------------------------------------
+      # Internal backend URL - Next.js server proxies to this
+      # Browser CANNOT see this URL
+      BACKEND_API_URL: http://api:8080
+      API_TIMEOUT: 30000
+
+      # Security secrets (MUST be server-only)
+      CSRF_SECRET: ${CSRF_SECRET}
+      SECURE_COOKIES: ${SECURE_COOKIES:-false}
+
+      # Cookie settings
+      COOKIE_MAX_AGE: 604800
+      ENABLE_TOKEN_REFRESH: "true"
+      TOKEN_REFRESH_BEFORE_EXPIRY: 300
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - rediver-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  rediver-network:
+    driver: bridge

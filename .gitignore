@@ -1,0 +1,12 @@
+# =============================================================================
+/rediver-api/
+/rediver-ui/
+/rediver-docs/
+/rediver-keycloak/
+/rediver-schemas/
+/old-projects/
+.DS_Store
+.claude/
+.vscode/
+.env.*
+!.env.staging.example
