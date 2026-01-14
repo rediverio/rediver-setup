@@ -206,13 +206,11 @@ services:
   # ---------------------------------------------------------------------------
   # Database Migration Service
   # ---------------------------------------------------------------------------
+  # Image from Docker Hub: rediverio/rediver-migrations:<version>
+  # Migrations are bundled in the image, no local files needed.
   migrate:
-    image: migrate/migrate:v4.17.0
+    image: rediverio/rediver-migrations:${MIGRATIONS_VERSION:-staging-latest}
     container_name: rediver-migrate
-    volumes:
-      - ./rediver-api/migrations:/migrations:ro
-    env_file:
-      - .env.db.staging
     environment:
       DATABASE_URL: postgres://${DB_USER:-rediver}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-rediver}?sslmode=disable
     entrypoint: [ "/bin/sh", "-c" ]
@@ -232,25 +230,32 @@ services:
   # ---------------------------------------------------------------------------
   # Database Seeding Service (Optional - use with --profile seed)
   # ---------------------------------------------------------------------------
+  # Image from Docker Hub: rediverio/rediver-seed:<version>
+  # Seed files are bundled in the image, no local files needed.
+  #
+  # Available seed files:
+  #   - seed_required.sql      - Required data (always runs)
+  #   - seed_test.sql          - Test/demo data (runs if SEED_TEST_DATA=true)
+  #   - seed_vnsecurity_assets.sql - VNSecurity specific assets
+  #
+  # Profiles:
+  #   --profile seed           - Run seed_required + seed_test
+  #   --profile seed-vnsecurity - Run seed_vnsecurity_assets
   seed:
-    image: postgres:17-alpine
+    image: rediverio/rediver-seed:${SEED_VERSION:-staging-latest}
     container_name: rediver-seed
-    volumes:
-      - ./seed:/seed:ro
-    env_file:
-      - .env.db.staging
-      - .env.api.staging
     environment:
       PGHOST: postgres
       PGPORT: 5432
       PGUSER: ${DB_USER:-rediver}
       PGPASSWORD: ${DB_PASSWORD:-secret}
       PGDATABASE: ${DB_NAME:-rediver}
+      SEED_TEST_DATA: ${SEED_TEST_DATA:-true}
     entrypoint: [ "/bin/sh", "-c" ]
     command:
       - |
         echo "Waiting for migrations..."
-        sleep 10
+        sleep 5
         echo "Seeding database..."
         psql -f /seed/seed_required.sql
         if [ "$${SEED_TEST_DATA}" = "true" ]; then
@@ -267,6 +272,32 @@ services:
       - rediver-network
     profiles:
       - seed
+
+  # ---------------------------------------------------------------------------
+  # VNSecurity Assets Seeding (Optional - use with --profile seed-vnsecurity)
+  # ---------------------------------------------------------------------------
+  seed-vnsecurity:
+    image: rediverio/rediver-seed:${SEED_VERSION:-staging-latest}
+    container_name: rediver-seed-vnsecurity
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${DB_USER:-rediver}
+      PGPASSWORD: ${DB_PASSWORD:-secret}
+      PGDATABASE: ${DB_NAME:-rediver}
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        echo "Seeding VNSecurity assets..."
+        psql -f /seed/seed_vnsecurity_assets.sql
+        echo "VNSecurity seeding complete!"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rediver-network
+    profiles:
+      - seed-vnsecurity
 
   # ---------------------------------------------------------------------------
   # Backend API (Go)

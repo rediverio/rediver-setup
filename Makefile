@@ -34,14 +34,15 @@ PROD_SIMPLE_COMPOSE := docker-compose.prod-simple.yml
 # Note: These are for compose file variables like ${API_VERSION}, ${DB_PASSWORD}, etc.
 # Container env vars are loaded via env_file: directives in the compose file itself
 STAGING_ENV_FILES := --env-file .env.db.staging --env-file .env.versions.staging
-PROD_ENV_FILES := $(PROD_ENV_FILES) --env-file .env.versions.prod
+PROD_ENV_FILES := --env-file .env.db.prod --env-file .env.versions.prod
 
 .PHONY: help init-staging init-prod init-ssl init-ssl-letsencrypt ssl-renew \
-        staging-up staging-up-seed staging-up-ssl staging-up-ssl-seed staging-seed staging-down staging-logs staging-ps staging-restart \
+        staging-up staging-up-seed staging-up-ssl staging-up-ssl-seed staging-down staging-logs staging-ps staging-restart \
+        staging-seed staging-seed-vnsecurity staging-seed-custom staging-seed-list \
         prod-up prod-down prod-logs prod-ps prod-restart prod-simple-up prod-simple-down \
         nginx-reload nginx-logs nginx-test \
         staging-build staging-rebuild prod-build prod-rebuild \
-        db-shell db-seed redis-shell generate-secrets status
+        db-shell db-migrate-staging db-migrate-prod redis-shell generate-secrets status
 
 # =============================================================================
 # Help
@@ -346,9 +347,37 @@ db-migrate-staging: ## Run staging migrations
 db-migrate-prod: ## Run production migrations
 	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) up migrate
 
-db-seed-staging: ## Seed staging test data
-	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec -T postgres psql -U rediver -d rediver < seed/seed_test.sql
+# =============================================================================
+# Database Seeding Commands
+# =============================================================================
+
+staging-seed: ## Seed staging with required + test data
+	@echo "Seeding staging database..."
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile seed up seed
+	@echo ""
 	@echo "Seeding complete! Test login: admin@rediver.io / Password123"
+
+staging-seed-vnsecurity: ## Seed staging with VNSecurity assets
+	@echo "Seeding VNSecurity assets..."
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile seed-vnsecurity up seed-vnsecurity
+	@echo ""
+	@echo "VNSecurity seeding complete!"
+
+staging-seed-custom: ## Seed staging with custom SQL file (usage: make staging-seed-custom FILE=seed_custom.sql)
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make staging-seed-custom FILE=<seed_file.sql>"; \
+		echo ""; \
+		echo "Available seed files in image:"; \
+		docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) run --rm seed ls -la /seed/; \
+		exit 1; \
+	fi
+	@echo "Seeding with $(FILE)..."
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) run --rm seed psql -f /seed/$(FILE)
+	@echo "Custom seeding complete!"
+
+staging-seed-list: ## List available seed files
+	@echo "Available seed files:"
+	@docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) run --rm seed ls -la /seed/
 
 redis-shell-staging: ## Open staging Redis CLI
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec redis redis-cli

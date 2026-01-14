@@ -45,10 +45,14 @@ Environment example files are located in `environments/` folder:
 
 Images are pulled from Docker Hub (`rediverio`):
 
-| Environment | API Image | UI Image |
-|-------------|-----------|----------|
-| Staging | `rediverio/rediver-api:<version>-staging` | `rediverio/rediver-ui:<version>-staging` |
-| Production | `rediverio/rediver-api:<version>` | `rediverio/rediver-ui:<version>` |
+| Image | Description | Staging Tag | Production Tag |
+|-------|-------------|-------------|----------------|
+| `rediverio/rediver-api` | Backend API | `staging-latest` | `latest` |
+| `rediverio/rediver-ui` | Frontend UI | `staging-latest` | `latest` |
+| `rediverio/rediver-migrations` | DB migrations | `staging-latest` | `latest` |
+| `rediverio/rediver-seed` | DB seed data | `staging-latest` | `latest` |
+
+See [docs/DOCKER_IMAGES.md](./docs/DOCKER_IMAGES.md) for detailed documentation.
 
 ---
 

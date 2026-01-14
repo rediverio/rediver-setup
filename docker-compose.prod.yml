@@ -182,13 +182,11 @@ services:
   # ---------------------------------------------------------------------------
   # Database Migration Service
   # ---------------------------------------------------------------------------
+  # Image from Docker Hub: rediverio/rediver-migrations:<version>
+  # Migrations are bundled in the image, no local files needed.
   migrate:
-    image: migrate/migrate:v4.17.0
+    image: rediverio/rediver-migrations:${MIGRATIONS_VERSION:-latest}
     container_name: rediver-migrate
-    volumes:
-      - ./rediver-api/migrations:/migrations:ro
-    env_file:
-      - .env.db.prod
     environment:
       DATABASE_URL: postgres://${DB_USER:-rediver}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-rediver}?sslmode=${DB_SSLMODE:-require}
     entrypoint: ["/bin/sh", "-c"]
