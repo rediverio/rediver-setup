@@ -212,7 +212,7 @@ services:
   # ---------------------------------------------------------------------------
   # Image from Docker Hub: rediverio/rediver-api:<version>
   api:
-    image: rediverio/rediver-api:${VERSION:-v0.1.0}
+    image: rediverio/rediver-api:${API_VERSION:-${VERSION:-latest}}
     container_name: rediver-api
     restart: always
     env_file:

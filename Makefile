@@ -25,16 +25,15 @@
 #   VERSION=v0.2.0 make prod-up
 # =============================================================================
 
-# Default version (can be overridden: VERSION=v0.2.0 make staging-up)
-VERSION ?= v0.1.0
-
 # Compose files
 STAGING_COMPOSE := docker-compose.staging.yml
 PROD_COMPOSE := docker-compose.prod.yml
 PROD_SIMPLE_COMPOSE := docker-compose.prod-simple.yml
 
-# Export VERSION for docker-compose
-export VERSION
+# Env files for docker-compose variable substitution (image versions, ports, etc.)
+# Note: These are for compose file variables like ${API_VERSION}, not container env vars
+STAGING_ENV_FILES := --env-file .env.versions.staging
+PROD_ENV_FILES := --env-file .env.versions.prod
 
 .PHONY: help init-staging init-prod init-ssl init-ssl-letsencrypt ssl-renew \
         staging-up staging-up-seed staging-up-ssl staging-up-ssl-seed staging-seed staging-down staging-logs staging-ps staging-restart \
@@ -94,12 +93,14 @@ init-staging: ## Copy staging env example files
 	@cp -n environments/.env.api.staging.example .env.api.staging 2>/dev/null || echo "  .env.api.staging already exists"
 	@cp -n environments/.env.ui.staging.example .env.ui.staging 2>/dev/null || echo "  .env.ui.staging already exists"
 	@cp -n environments/.env.nginx.staging.example .env.nginx.staging 2>/dev/null || echo "  .env.nginx.staging already exists"
+	@cp -n environments/.env.versions.staging.example .env.versions.staging 2>/dev/null || echo "  .env.versions.staging already exists"
 	@echo ""
 	@echo "Next steps:"
 	@echo "  1. Run: make generate-secrets"
 	@echo "  2. Update secrets in .env.*.staging files"
-	@echo "  3. Run: make staging-up"
-	@echo "  4. (Optional) For HTTPS: make init-ssl && make staging-up-ssl"
+	@echo "  3. Update versions in .env.versions.staging"
+	@echo "  4. Run: make staging-up"
+	@echo "  5. (Optional) For HTTPS: make init-ssl && make staging-up-ssl"
 
 init-prod: ## Copy production env example files
 	@echo "Creating production environment files..."
@@ -107,6 +108,7 @@ init-prod: ## Copy production env example files
 	@cp -n environments/.env.api.prod.example .env.api.prod 2>/dev/null || echo "  .env.api.prod already exists"
 	@cp -n environments/.env.ui.prod.example .env.ui.prod 2>/dev/null || echo "  .env.ui.prod already exists"
 	@cp -n environments/.env.nginx.prod.example .env.nginx.prod 2>/dev/null || echo "  .env.nginx.prod already exists"
+	@cp -n environments/.env.versions.prod.example .env.versions.prod 2>/dev/null || echo "  .env.versions.prod already exists"
 	@echo ""
 	@echo "IMPORTANT: Update ALL <CHANGE_ME> values before starting!"
 	@echo ""
@@ -114,11 +116,12 @@ init-prod: ## Copy production env example files
 	@echo "  1. Run: make generate-secrets"
 	@echo "  2. Update ALL values in .env.*.prod files"
 	@echo "  3. Update NGINX_HOST in .env.nginx.prod"
-	@echo "  4. Run: make init-ssl-letsencrypt (for SSL setup instructions)"
-	@echo "  4. Run: make prod-up"
+	@echo "  4. Update versions in .env.versions.prod"
+	@echo "  5. Run: make init-ssl-letsencrypt (for SSL setup instructions)"
+	@echo "  6. Run: make prod-up"
 	@echo ""
 	@echo "Or for external proxy (AWS ALB, Traefik, etc.):"
-	@echo "  3. Run: make prod-simple-up"
+	@echo "  - Run: make prod-simple-up"
 
 init-ssl: ## Generate self-signed SSL certificate (for staging/testing)
 	@echo "=== Generating Self-Signed SSL Certificate ==="
@@ -178,34 +181,34 @@ ssl-renew: ## Reload nginx after certificate renewal
 staging-up: check-staging ## Start staging environment
 	@echo "Starting staging environment (version: $(VERSION))..."
 	@echo "Pulling images from Docker Hub..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging pull
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging up -d
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) pull
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) up -d
 	@echo ""
 	@echo "Services starting... UI: http://localhost:3000"
 	@echo "View logs: make staging-logs"
 
 staging-up-seed: check-staging ## Start staging with test data
 	@echo "Starting staging environment with test data (version: $(VERSION))..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging pull
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile seed up -d
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) pull
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile seed up -d
 	@echo ""
 	@echo "Test credentials: admin@rediver.io / Password123"
 	@echo "UI: http://localhost:3000"
 
 staging-up-ssl: check-staging check-nginx-staging check-ssl ## Start staging with Nginx/SSL
 	@echo "Starting staging environment with Nginx/SSL (version: $(VERSION))..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging pull
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) pull
 	@echo "Starting all services with SSL profile..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile ssl up -d
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl up -d
 	@echo ""
 	@echo "Services starting... UI: https://localhost"
 	@echo "View logs: make staging-logs"
 
 staging-up-ssl-seed: check-staging check-nginx-staging check-ssl ## Start staging with Nginx/SSL and test data
 	@echo "Starting staging environment with Nginx/SSL and test data (version: $(VERSION))..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging pull
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) pull
 	@echo "Starting all services with SSL and seed profiles..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile ssl --profile seed up -d
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl --profile seed up -d
 	@echo ""
 	@echo "Test credentials: admin@rediver.io / Password123"
 	@echo "UI: https://localhost"
@@ -213,7 +216,7 @@ staging-up-ssl-seed: check-staging check-nginx-staging check-ssl ## Start stagin
 staging-seed: check-staging ## Seed test data to running staging database
 	@echo "Seeding test data..."
 	@if docker ps --format '{{.Names}}' | grep -q rediver-postgres; then \
-		docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging run --rm seed; \
+		docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) run --rm seed; \
 		echo ""; \
 		echo "✓ Seeding complete!"; \
 		echo "Test credentials: admin@rediver.io / Password123"; \
@@ -223,44 +226,44 @@ staging-seed: check-staging ## Seed test data to running staging database
 	fi
 
 staging-down: ## Stop staging services (use staging-down-ssl if using SSL)
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging down
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) down
 
 staging-down-ssl: ## Stop staging services including nginx (use after staging-up-ssl)
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile ssl --profile seed down
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl --profile seed down
 	@echo "✓ All services stopped (including nginx)"
 
 staging-logs: ## View staging logs (follow)
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging logs -f
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) logs -f
 
 staging-logs-api: ## View staging API logs
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging logs -f api
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) logs -f api
 
 staging-logs-ui: ## View staging UI logs
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging logs -f ui
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) logs -f ui
 
 staging-ps: ## Show staging containers
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging ps
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) ps
 
 staging-restart: ## Restart staging services
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging restart
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) restart
 
 staging-restart-api: ## Restart staging API only
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging restart api
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) restart api
 
 staging-restart-ui: ## Restart staging UI only
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging restart ui
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) restart ui
 
 staging-pull: check-staging ## Pull latest staging images
 	@echo "Pulling staging images (version: $(VERSION))..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging pull
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) pull
 
 staging-upgrade: check-staging ## Upgrade to latest version
 	@echo "Upgrading staging to version: $(VERSION)..."
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging pull
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging up -d --force-recreate
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) pull
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) up -d --force-recreate
 
 staging-clean: ## Stop and remove staging volumes
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging down -v
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) down -v
 	@echo "Cleaned up. Run 'make staging-up' to start fresh."
 
 # =============================================================================
@@ -331,23 +334,23 @@ prod-clean: ## Stop and remove production volumes (DANGER!)
 # =============================================================================
 
 db-shell-staging: ## Open staging PostgreSQL shell
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging exec postgres psql -U rediver -d rediver
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec postgres psql -U rediver -d rediver
 
 db-shell-prod: ## Open production PostgreSQL shell
 	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec postgres psql -U rediver -d rediver
 
 db-migrate-staging: ## Run staging migrations
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging up migrate
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) up migrate
 
 db-migrate-prod: ## Run production migrations
 	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod up migrate
 
 db-seed-staging: ## Seed staging test data
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging exec -T postgres psql -U rediver -d rediver < seed/seed_test.sql
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec -T postgres psql -U rediver -d rediver < seed/seed_test.sql
 	@echo "Seeding complete! Test login: admin@rediver.io / Password123"
 
 redis-shell-staging: ## Open staging Redis CLI
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging exec redis redis-cli
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec redis redis-cli
 
 redis-shell-prod: ## Open production Redis CLI
 	@echo "Note: Production Redis requires password"
@@ -411,7 +414,7 @@ generate-secrets: ## Generate secure secrets
 
 status-staging: ## Show staging status
 	@echo "=== Staging Environment ==="
-	@docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Not running"
+	@docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "Not running"
 	@echo ""
 	@echo "UI: http://localhost:3000"
 
@@ -428,19 +431,19 @@ prune: ## Remove unused Docker resources
 # =============================================================================
 
 nginx-test-staging: ## Test staging nginx configuration
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile ssl exec nginx nginx -t
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl exec nginx nginx -t
 
 nginx-test-prod: ## Test production nginx configuration
 	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec nginx nginx -t
 
 nginx-reload-staging: ## Reload staging nginx configuration
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile ssl exec nginx nginx -s reload
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl exec nginx nginx -s reload
 
 nginx-reload-prod: ## Reload production nginx configuration
 	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod exec nginx nginx -s reload
 
 nginx-logs-staging: ## View staging nginx logs
-	docker compose -f $(STAGING_COMPOSE) --env-file .env.db.staging --profile ssl logs -f nginx
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) --profile ssl logs -f nginx
 
 nginx-logs-prod: ## View production nginx logs
 	docker compose -f $(PROD_COMPOSE) --env-file .env.db.prod logs -f nginx
