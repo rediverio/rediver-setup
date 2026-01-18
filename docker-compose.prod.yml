@@ -200,7 +200,7 @@ services:
         echo "Waiting for database..."
         sleep 10
         echo "Running migrations..."
-        /migrate -path=/migrations -database "$${DATABASE_URL}" up
+        migrate -path=/migrations -database "$${DATABASE_URL}" up
         echo "Migrations complete!"
     depends_on:
       postgres:
