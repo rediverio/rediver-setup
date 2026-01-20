@@ -238,11 +238,11 @@ services:
   #
   # Available seed files:
   #   - seed_required.sql      - Required data (always runs)
-  #   - seed_test.sql          - Test/demo data (runs if SEED_TEST_DATA=true)
+  #   - seed_comprehensive.sql          - Test/demo data (runs if SEED_TEST_DATA=true)
   #   - seed_vnsecurity_assets.sql - VNSecurity specific assets
   #
   # Profiles:
-  #   --profile seed           - Run seed_required + seed_test
+  #   --profile seed           - Run seed_required + seed_comprehensive
   #   --profile seed-vnsecurity - Run seed_vnsecurity_assets
   seed:
     image: rediverio/seed:${SEED_VERSION:-staging-latest}
@@ -262,7 +262,7 @@ services:
         psql -f /seed/seed_required.sql
         if [ "$${SEED_TEST_DATA}" = "true" ]; then
           echo "Seeding test data..."
-          psql -f /seed/seed_test.sql 2>/dev/null || true
+          psql -f /seed/seed_comprehensive.sql 2>/dev/null || true
         fi
         echo "Seeding complete!"
     depends_on:

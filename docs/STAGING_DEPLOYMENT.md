@@ -303,7 +303,7 @@ ui:
 | Seed File | Description | Command |
 |-----------|-------------|---------|
 | `seed_required.sql` | Required system data | Auto on startup |
-| `seed_test.sql` | Test users & sample data | `--profile seed` |
+| `seed_comprehensive.sql` | Test users & sample data | `--profile seed` |
 
 ### Seed Test Data
 
