@@ -187,6 +187,12 @@ bootstrap-admin-prod: ## Create initial admin user for production. Use email=<em
 # Database & Utilities
 # =============================================================================
 
+migrate-staging: ## Run staging database migrations manually
+	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) up migrate
+
+migrate-prod: ## Run production database migrations manually
+	docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) up migrate
+
 db-shell-staging: ## Connect to Staging DB shell
 	docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec postgres psql -U rediver -d rediver
 
