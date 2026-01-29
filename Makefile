@@ -264,8 +264,8 @@ list-tenants-prod: ## List all tenants with their plans (production)
 
 list-plans-staging: ## List all available plans (staging)
 	@docker compose -f $(STAGING_COMPOSE) $(STAGING_ENV_FILES) exec -T postgres psql -U rediver -d rediver -c \
-		"SELECT id, name, slug, display_name FROM plans ORDER BY price_monthly;"
+		"SELECT id, name, slug, price_monthly FROM plans ORDER BY price_monthly;"
 
 list-plans-prod: ## List all available plans (production)
 	@docker compose -f $(PROD_COMPOSE) $(PROD_ENV_FILES) exec -T postgres psql -U rediver -d rediver -c \
-		"SELECT id, name, slug, display_name FROM plans ORDER BY price_monthly;"
+		"SELECT id, name, slug, price_monthly FROM plans ORDER BY price_monthly;"
