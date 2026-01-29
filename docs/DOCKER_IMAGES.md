@@ -8,27 +8,27 @@ The Rediver platform uses 4 Docker images published to Docker Hub:
 
 | Image | Description | Repository |
 |-------|-------------|------------|
-| `rediverio/api` | Backend API (Go) | api |
-| `rediverio/ui` | Frontend UI (Next.js) | ui |
-| `rediverio/migrations` | Database migrations | api |
-| `rediverio/seed` | Database seed data | api |
-| `rediverio/agent` | Security scanning agent | agent |
+| `exploopio/api` | Backend API (Go) | api |
+| `exploopio/ui` | Frontend UI (Next.js) | ui |
+| `exploopio/migrations` | Database migrations | api |
+| `exploopio/seed` | Database seed data | api |
+| `exploopio/agent` | Security scanning agent | agent |
 
 ## Image Details
 
-### 1. API Image (`rediverio/api`)
+### 1. API Image (`exploopio/api`)
 
 The main backend API built with Go.
 
 ```bash
 # Pull latest
-docker pull rediverio/api:latest
+docker pull exploopio/api:latest
 
 # Pull staging
-docker pull rediverio/api:staging-latest
+docker pull exploopio/api:staging-latest
 
 # Pull specific version
-docker pull rediverio/api:v0.1.0
+docker pull exploopio/api:v0.1.0
 ```
 
 **Tags:**
@@ -36,55 +36,55 @@ docker pull rediverio/api:v0.1.0
 - `staging-latest` - Latest staging build
 - `v0.1.0` - Specific version
 
-### 2. UI Image (`rediverio/ui`)
+### 2. UI Image (`exploopio/ui`)
 
 The frontend application built with Next.js.
 
 ```bash
-docker pull rediverio/ui:latest
-docker pull rediverio/ui:staging-latest
+docker pull exploopio/ui:latest
+docker pull exploopio/ui:staging-latest
 ```
 
-### 3. Migrations Image (`rediverio/migrations`)
+### 3. Migrations Image (`exploopio/migrations`)
 
 Contains database migration files and the migrate tool.
 
 ```bash
-docker pull rediverio/migrations:latest
-docker pull rediverio/migrations:staging-latest
+docker pull exploopio/migrations:latest
+docker pull exploopio/migrations:staging-latest
 ```
 
 **Usage:**
 ```bash
 # Apply all migrations
 docker run --rm \
-  rediverio/migrations:staging-latest \
+  exploopio/migrations:staging-latest \
   -path=/migrations \
   -database "postgres://user:pass@host:5432/db?sslmode=disable" \
   up
 
 # Rollback last migration
 docker run --rm \
-  rediverio/migrations:staging-latest \
+  exploopio/migrations:staging-latest \
   -path=/migrations \
   -database "postgres://user:pass@host:5432/db?sslmode=disable" \
   down 1
 
 # Show current version
 docker run --rm \
-  rediverio/migrations:staging-latest \
+  exploopio/migrations:staging-latest \
   -path=/migrations \
   -database "postgres://user:pass@host:5432/db?sslmode=disable" \
   version
 ```
 
-### 4. Seed Image (`rediverio/seed`)
+### 4. Seed Image (`exploopio/seed`)
 
 Contains SQL seed files for initializing database data.
 
 ```bash
-docker pull rediverio/seed:latest
-docker pull rediverio/seed:staging-latest
+docker pull exploopio/seed:latest
+docker pull exploopio/seed:staging-latest
 ```
 
 **Available seed files:**
@@ -94,34 +94,34 @@ docker pull rediverio/seed:staging-latest
 **Usage:**
 ```bash
 # List available seed files
-docker run --rm rediverio/seed:staging-latest ls -la /seed/
+docker run --rm exploopio/seed:staging-latest ls -la /seed/
 
 # Run specific seed file
 docker run --rm \
   -e PGHOST=postgres \
-  -e PGUSER=rediver \
+  -e PGUSER.exploop \
   -e PGPASSWORD=secret \
-  -e PGDATABASE=rediver \
-  rediverio/seed:staging-latest \
+  -e PGDATABASE.exploop \
+  exploopio/seed:staging-latest \
   psql -f /seed/seed_required.sql
 ```
 
-### 5. Agent Image (`rediverio/agent`)
+### 5. Agent Image (`exploopio/agent`)
 
 Security scanning agent for CI/CD integration and continuous monitoring.
 
 ```bash
-docker pull rediverio/agent:latest   # Full (semgrep + gitleaks + trivy)
-docker pull rediverio/agent:slim     # Minimal (no tools)
-docker pull rediverio/agent:ci       # CI optimized (preloaded Trivy DB)
+docker pull exploopio/agent:latest   # Full (semgrep + gitleaks + trivy)
+docker pull exploopio/agent:slim     # Minimal (no tools)
+docker pull exploopio/agent:ci       # CI optimized (preloaded Trivy DB)
 ```
 
 **Component Types:**
 | Type | Use Case | Mode | Recommended Image |
 |------|----------|------|-------------------|
-| `runner` | CI/CD pipelines | One-shot | `rediverio/agent:ci` |
-| `worker` | Production scanning | Daemon | `rediverio/agent:latest` |
-| `collector` | Infrastructure inventory | Daemon | `rediverio/agent:latest` |
+| `runner` | CI/CD pipelines | One-shot | `exploopio/agent:ci` |
+| `worker` | Production scanning | Daemon | `exploopio/agent:latest` |
+| `collector` | Infrastructure inventory | Daemon | `exploopio/agent:latest` |
 
 **Image Variants:**
 | Variant | Description | Use Case |
@@ -135,35 +135,35 @@ docker pull rediverio/agent:ci       # CI optimized (preloaded Trivy DB)
 # Runner: CI/CD one-shot scan
 docker run --rm \
   -v "$(pwd)":/code:ro \
-  -e API_URL=https://api.rediver.io \
+  -e API_URL=https://api.exploop.io \
   -e API_KEY=your-api-key \
-  rediverio/agent:ci \
+  exploopio/agent:ci \
   -tools semgrep,gitleaks,trivy-fs -target /code -push
 
 # Worker: Server-controlled daemon
 docker run -d \
-  --name rediver-worker \
+  --name.exploop-worker \
   --restart unless-stopped \
-  -e API_URL=https://api.rediver.io \
+  -e API_URL=https://api.exploop.io \
   -e API_KEY=your-api-key \
   -e WORKER_ID=your-worker-id \
-  rediverio/agent:latest \
+  exploopio/agent:latest \
   -daemon -enable-commands -verbose
 
 # Collector: Infrastructure scanning
 docker run -d \
-  --name rediver-collector \
+  --name.exploop-collector \
   --restart unless-stopped \
-  -e API_URL=https://api.rediver.io \
+  -e API_URL=https://api.exploop.io \
   -e API_KEY=your-api-key \
   -e WORKER_ID=your-collector-id \
   -e AWS_ACCESS_KEY_ID=your-access-key \
   -e AWS_SECRET_ACCESS_KEY=your-secret-key \
-  rediverio/agent:latest \
+  exploopio/agent:latest \
   -daemon -enable-commands -verbose
 ```
 
-See [Agent README](https://github.com/rediverio/agent) and [Worker Architecture](./WORKER_ARCHITECTURE.md) for full documentation.
+See [Agent README](https://github.com/exploopio/agent) and [Worker Architecture](./WORKER_ARCHITECTURE.md) for full documentation.
 
 ## Version Configuration
 
@@ -232,13 +232,13 @@ If you need to build images locally for development:
 cd api
 
 # Build API image
-docker build -t rediverio/api:local -f Dockerfile --target production .
+docker build -t exploopio/api:local -f Dockerfile --target production .
 
 # Build migrations image
-docker build -t rediverio/migrations:local -f Dockerfile.migrations .
+docker build -t exploopio/migrations:local -f Dockerfile.migrations .
 
 # Build seed image
-docker build -t rediverio/seed:local -f Dockerfile.seed .
+docker build -t exploopio/seed:local -f Dockerfile.seed .
 ```
 
 ## CI/CD Pipeline
@@ -290,5 +290,5 @@ docker compose -f docker-compose.staging.yml pull
 
 Or check if the image exists on Docker Hub:
 ```bash
-docker manifest inspect rediverio/api:staging-latest
+docker manifest inspect exploopio/api:staging-latest
 ```

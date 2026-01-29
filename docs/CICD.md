@@ -26,8 +26,8 @@ The project uses GitHub Actions to automatically build and publish Docker images
 
 | Repository | Image | Workflow |
 |------------|-------|----------|
-| `ui` | `rediverio/ui` | `.github/workflows/docker-publish.yml` |
-| `api` | `rediverio/api` | `.github/workflows/docker-publish.yml` |
+| `ui` | `exploopio/ui` | `.github/workflows/docker-publish.yml` |
+| `api` | `exploopio/api` | `.github/workflows/docker-publish.yml` |
 
 ### Build Features
 
@@ -113,14 +113,14 @@ api/.github/workflows/docker-publish.yml
 ```
 Version: v0.1.1
 Environment: staging
-→ Tags: rediverio/ui:v0.1.1-staging, rediverio/ui:staging-latest
+→ Tags: exploopio/ui:v0.1.1-staging, exploopio/ui:staging-latest
 ```
 
 **Production build:**
 ```
 Version: v0.1.1
 Environment: production
-→ Tags: rediverio/ui:v0.1.1, rediverio/ui:latest
+→ Tags: exploopio/ui:v0.1.1, exploopio/ui:latest
 ```
 
 ---
@@ -160,7 +160,7 @@ The workflow automatically detects the environment from the tag:
 ### Repository Structure
 
 ```
-rediverio/
+exploopio/
 ├── api
 │   ├── v0.1.0-staging
 │   ├── v0.1.1-staging
@@ -182,16 +182,16 @@ rediverio/
 
 ```bash
 # Staging
-docker pull rediverio/ui:v0.1.1-staging
-docker pull rediverio/api:v0.1.1-staging
+docker pull exploopio/ui:v0.1.1-staging
+docker pull exploopio/api:v0.1.1-staging
 
 # Production
-docker pull rediverio/ui:v0.1.1
-docker pull rediverio/api:v0.1.1
+docker pull exploopio/ui:v0.1.1
+docker pull exploopio/api:v0.1.1
 
 # Latest
-docker pull rediverio/ui:latest
-docker pull rediverio/api:latest
+docker pull exploopio/ui:latest
+docker pull exploopio/api:latest
 ```
 
 ---
@@ -209,7 +209,7 @@ You can configure build-time variables in GitHub:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_APP_URL` | Public app URL | `https://app.rediver.io` |
+| `NEXT_PUBLIC_APP_URL` | Public app URL | `https://app.exploop.io` |
 | `NEXT_PUBLIC_AUTH_PROVIDER` | Auth provider | `local` |
 
 ### Using with docker-compose
@@ -338,7 +338,7 @@ permissions:
 docker buildx build \
   --platform linux/amd64 \
   --target production \
-  -t rediverio/ui:local \
+  -t exploopio/ui:local \
   -f Dockerfile \
   .
 
@@ -346,7 +346,7 @@ docker buildx build \
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   --target production \
-  -t rediverio/ui:local \
+  -t exploopio/ui:local \
   -f Dockerfile \
   .
 ```
@@ -355,7 +355,7 @@ docker buildx build \
 
 ```bash
 # Run the image
-docker run -p 3000:3000 rediverio/ui:local
+docker run -p 3000:3000 exploopio/ui:local
 
 # Check health
 curl http://localhost:3000/api/health
@@ -375,12 +375,12 @@ git tag v0.1.1-staging && git push origin v0.1.1-staging
 git tag v0.1.1 && git push origin v0.1.1
 
 # Pull latest staging
-docker pull rediverio/ui:staging-latest
-docker pull rediverio/api:staging-latest
+docker pull exploopio/ui:staging-latest
+docker pull exploopio/api:staging-latest
 
 # Pull specific version
-docker pull rediverio/ui:v0.1.1-staging
-docker pull rediverio/api:v0.1.1-staging
+docker pull exploopio/ui:v0.1.1-staging
+docker pull exploopio/api:v0.1.1-staging
 
 # Deploy staging
 VERSION=v0.1.1-staging make staging-pull && make staging-restart
@@ -388,7 +388,7 @@ VERSION=v0.1.1-staging make staging-pull && make staging-restart
 
 ### Useful Links
 
-- [Docker Hub - rediverio](https://hub.docker.com/u/rediverio)
+- [Docker Hub -.exploopio](https://hub.docker.com/u.exploopio)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Docker Build Push Action](https://github.com/docker/build-push-action)
 

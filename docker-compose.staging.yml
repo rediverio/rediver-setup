@@ -3,7 +3,7 @@
 # =============================================================================
 # Complete staging setup with API, UI, database, and automatic migrations.
 #
-# Images are pulled from Docker Hub: rediverio/api, rediverio/ui, rediverio/admin-ui
+# Images are pulled from Docker Hub: exploopio/api, exploopio/ui, exploopio/admin-ui
 #
 # Quick Start:
 #   1. Copy env files:
@@ -57,9 +57,9 @@ services:
   # Nginx Reverse Proxy (Optional - use with --profile ssl)
   # ---------------------------------------------------------------------------
   # Multi-domain nginx configuration serving:
-  #   - UI: ${NGINX_HOST} (e.g., localhost, rediver.io)
-  #   - API: ${API_HOST} (e.g., api.localhost, api.rediver.io)
-  #   - Admin UI: ${ADMIN_HOST} (e.g., admin.localhost, admin.rediver.io)
+  #   - UI: ${NGINX_HOST} (e.g., localhost, exploop.io)
+  #   - API: ${API_HOST} (e.g., api.localhost, api.exploop.io)
+  #   - Admin UI: ${ADMIN_HOST} (e.g., admin.localhost, admin.exploop.io)
   #
   # Environment Variables:
   #   - NGINX_HOST: UI hostname (default: localhost)
@@ -125,16 +125,16 @@ services:
     env_file:
       - .env.db.staging
     environment:
-      POSTGRES_USER: ${DB_USER:-rediver}
+      POSTGRES_USER: ${DB_USER:-exploop}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      POSTGRES_DB: ${DB_NAME:-rediver}
+      POSTGRES_DB: ${DB_NAME:-exploop}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     expose:
       - "5432"
     # No external ports by default - use --profile debug to expose
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-rediver} -d ${DB_NAME:-rediver}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-exploop} -d ${DB_NAME:-exploop}" ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -216,12 +216,12 @@ services:
   # ---------------------------------------------------------------------------
   # Database Migration Service
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/migrations:<version>
+  # Image from Docker Hub: exploopio/migrations:<version>
   # Migrations are bundled in the image, no local files needed.
   migrate:
-    image: rediverio/migrations:${MIGRATIONS_VERSION:-staging-latest}
+    image: exploopio/migrations:${MIGRATIONS_VERSION:-staging-latest}
     environment:
-      DATABASE_URL: postgres://${DB_USER:-rediver}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-rediver}?sslmode=disable
+      DATABASE_URL: postgres://${DB_USER:-exploop}:${DB_PASSWORD:-secret}@postgres:5432/${DB_NAME:-exploop}?sslmode=disable
     entrypoint: [ "/bin/sh", "-c" ]
     command:
       - |
@@ -239,7 +239,7 @@ services:
   # ---------------------------------------------------------------------------
   # Database Seeding Service (Optional - use with --profile seed)
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/seed:<version>
+  # Image from Docker Hub: exploopio/seed:<version>
   # Seed files are bundled in the image, no local files needed.
   #
   # Available seed files:
@@ -249,13 +249,13 @@ services:
   # Usage:
   #   --profile seed           - Run seed_required + seed_comprehensive
   seed:
-    image: rediverio/seed:${SEED_VERSION:-staging-latest}
+    image: exploopio/seed:${SEED_VERSION:-staging-latest}
     environment:
       PGHOST: postgres
       PGPORT: 5432
-      PGUSER: ${DB_USER:-rediver}
+      PGUSER: ${DB_USER:-exploop}
       PGPASSWORD: ${DB_PASSWORD:-secret}
-      PGDATABASE: ${DB_NAME:-rediver}
+      PGDATABASE: ${DB_NAME:-exploop}
       SEED_TEST_DATA: ${SEED_TEST_DATA:-true}
     entrypoint: [ "/bin/sh", "-c" ]
     command:
@@ -282,9 +282,9 @@ services:
   # ---------------------------------------------------------------------------
   # Backend API (Go)
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/api:<version>
+  # Image from Docker Hub: exploopio/api:<version>
   api:
-    image: rediverio/api:${API_VERSION:-staging-latest}
+    image: exploopio/api:${API_VERSION:-staging-latest}
     restart: unless-stopped
     env_file:
       - .env.db.staging
@@ -328,10 +328,10 @@ services:
   # ---------------------------------------------------------------------------
   # Frontend UI (Next.js)
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/ui:<version>
+  # Image from Docker Hub: exploopio/ui:<version>
   # Note: NEXT_PUBLIC_* variables are baked into the image at build time
   ui:
-    image: rediverio/ui:${UI_VERSION:-staging-latest}
+    image: exploopio/ui:${UI_VERSION:-staging-latest}
     restart: unless-stopped
     env_file:
       - .env.ui.staging
@@ -365,10 +365,10 @@ services:
   # ---------------------------------------------------------------------------
   # Admin UI (Next.js) - Platform Administration Console
   # ---------------------------------------------------------------------------
-  # Image from Docker Hub: rediverio/admin-ui:<version>
+  # Image from Docker Hub: exploopio/admin-ui:<version>
   # Note: NEXT_PUBLIC_* variables are baked into the image at build time
   admin-ui:
-    image: rediverio/admin-ui:${ADMIN_UI_VERSION:-staging-latest}
+    image: exploopio/admin-ui:${ADMIN_UI_VERSION:-staging-latest}
     restart: unless-stopped
     env_file:
       - .env.admin-ui.staging
